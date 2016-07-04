@@ -487,8 +487,14 @@ Server::switchScreen(BaseClientProxy* dst,
 		}
 		else {
 			static Stopwatch stopwatch(true);
-			if (stopwatch.getTime() <= kbouncingThreshold) {
-				LOG((CLOG_WARN "leaving too quick, there might be a bouncing"));
+			static bool firstTime = true;
+			if (firstTime) {
+				firstTime = false;
+			}
+			else {
+				if (stopwatch.getTime() <= kbouncingThreshold) {
+					LOG((CLOG_WARN "leaving too quick, there might be a bouncing"));
+				}
 			}
 			stopwatch.reset();
 		}

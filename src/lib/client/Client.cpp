@@ -258,8 +258,14 @@ void
 Client::enter(SInt32 xAbs, SInt32 yAbs, UInt32, KeyModifierMask mask, bool)
 {
 	static Stopwatch stopwatch(true);
-	if (stopwatch.getTime() <= kbouncingThreshold) {
-		LOG((CLOG_WARN "entering too quick, there might be a bouncing"));
+	static bool firstTime = true;
+	if (firstTime) {
+		firstTime = false;
+	}
+	else {
+		if (stopwatch.getTime() <= kbouncingThreshold) {
+			LOG((CLOG_WARN "entering too quick, there might be a bouncing"));
+		}
 	}
 	stopwatch.reset();
 
@@ -277,8 +283,14 @@ bool
 Client::leave()
 {
 	static Stopwatch stopwatch(true);
-	if (stopwatch.getTime() <= kbouncingThreshold) {
-		LOG((CLOG_WARN "leaving too quick, there might be a bouncing"));
+	static bool firstTime = true;
+	if (firstTime) {
+		firstTime = false;
+	}
+	else {
+		if (stopwatch.getTime() <= kbouncingThreshold) {
+			LOG((CLOG_WARN "leaving too quick, there might be a bouncing"));
+		}
 	}
 	stopwatch.reset();
 
