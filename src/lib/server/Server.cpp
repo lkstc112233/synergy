@@ -51,6 +51,8 @@
 #include <sstream>
 #include <fstream>
 
+static const double kbouncingThreshold = 0.01;
+
 //
 // Server
 //
@@ -482,6 +484,13 @@ Server::switchScreen(BaseClientProxy* dst,
 			// cannot leave screen
 			LOG((CLOG_WARN "can't leave screen"));
 			return;
+		}
+		else {
+			static Stopwatch stopwatch(true);
+			if (stopwatch.getTime() <= kbouncingThreshold) {
+				LOG((CLOG_WARN "leaving too quick, there might be a bouncing"));
+			}
+			stopwatch.reset();
 		}
 
 		// update the primary client's clipboards if we're leaving the

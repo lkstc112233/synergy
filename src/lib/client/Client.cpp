@@ -46,6 +46,8 @@
 #include <sstream>
 #include <fstream>
 
+static const double kbouncingThreshold = 0.01;
+
 //
 // Client
 //
@@ -255,6 +257,12 @@ Client::getCursorPos(SInt32& x, SInt32& y) const
 void
 Client::enter(SInt32 xAbs, SInt32 yAbs, UInt32, KeyModifierMask mask, bool)
 {
+	static Stopwatch stopwatch(true);
+	if (stopwatch.getTime() <= kbouncingThreshold) {
+		LOG((CLOG_WARN "entering too quick, there might be a bouncing"));
+	}
+	stopwatch.reset();
+
 	m_active = true;
 	m_screen->mouseMove(xAbs, yAbs);
 	m_screen->enter(mask);
@@ -268,6 +276,12 @@ Client::enter(SInt32 xAbs, SInt32 yAbs, UInt32, KeyModifierMask mask, bool)
 bool
 Client::leave()
 {
+	static Stopwatch stopwatch(true);
+	if (stopwatch.getTime() <= kbouncingThreshold) {
+		LOG((CLOG_WARN "leaving too quick, there might be a bouncing"));
+	}
+	stopwatch.reset();
+
 	m_active = false;
 
 	if (m_sendClipboardThread != NULL) {
