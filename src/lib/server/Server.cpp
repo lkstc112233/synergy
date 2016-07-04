@@ -486,7 +486,7 @@ Server::switchScreen(BaseClientProxy* dst,
 			return;
 		}
 		else {
-			static Stopwatch stopwatch(true);
+			static Stopwatch stopwatch;
 			static bool firstTime = true;
 			if (firstTime) {
 				firstTime = false;

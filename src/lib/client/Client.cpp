@@ -257,16 +257,18 @@ Client::getCursorPos(SInt32& x, SInt32& y) const
 void
 Client::enter(SInt32 xAbs, SInt32 yAbs, UInt32, KeyModifierMask mask, bool)
 {
-	static Stopwatch stopwatch(true);
+	static Stopwatch stopwatch;
 	static bool firstTime = true;
 	if (firstTime) {
 		firstTime = false;
 	}
 	else {
 		if (stopwatch.getTime() <= kbouncingThreshold) {
-			LOG((CLOG_WARN "entering too quick, there might be a bouncing"));
+			LOG((CLOG_WARN "entering too quick, there might be a bouncing %f", stopwatch.getTime()));
+		
 		}
 	}
+	
 	stopwatch.reset();
 
 	m_active = true;
@@ -282,7 +284,7 @@ Client::enter(SInt32 xAbs, SInt32 yAbs, UInt32, KeyModifierMask mask, bool)
 bool
 Client::leave()
 {
-	static Stopwatch stopwatch(true);
+	static Stopwatch stopwatch;
 	static bool firstTime = true;
 	if (firstTime) {
 		firstTime = false;
