@@ -524,7 +524,7 @@ EventQueue::hasTimerExpired(Event& event)
 		m_timerQueue.push(timer);
 	}
 	else {
-		LOG((CLOG_DEBUG "a one shot timer expired"));
+		LOG((CLOG_DEBUG "a one shot timer expired, timeout: %f", timer.getTimeout()));
 	}
 
 	return true;
@@ -629,6 +629,12 @@ void*
 EventQueue::Timer::getTarget() const
 {
 	return m_target;
+}
+
+double
+EventQueue::Timer::getTimeout() const
+{
+	return m_timeout;
 }
 
 void

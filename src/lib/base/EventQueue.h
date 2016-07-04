@@ -90,6 +90,7 @@ private:
 		EventQueueTimer*
 						getTimer() const;
 		void*			getTarget() const;
+		double			getTimeout() const;
 		void			fillEvent(TimerEvent&) const;
 
 		bool			operator<(const Timer&) const;
