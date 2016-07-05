@@ -980,12 +980,23 @@ MSWindowsScreen::onPreDispatch(HWND hwnd,
 {
 	// handle event
 	switch (message) {
-	case SYNERGY_MSG_SCREEN_SAVER:
-		return onScreensaver(wParam != 0);
+		case SYNERGY_MSG_SCREEN_SAVER:
+			return onScreensaver(wParam != 0);
 
-	case SYNERGY_MSG_DEBUG:
-		LOG((CLOG_DEBUG1 "hook: 0x%08x 0x%08x", wParam, lParam));
-		return true;
+		case SYNERGY_MSG_DEBUG:
+			LOG((CLOG_DEBUG1 "hook: 0x%08x 0x%08x", wParam, lParam));
+			return true;
+
+		case SYNERGY_MSG_DEBUG_LOG:
+			std::list<std::string>* const log = reinterpret_cast<std::list<std::string>*> (wParam);
+			for (std::list<std::string>::const_iterator i = log->cbegin();
+					i != log->cend(); ++i) {
+				std::string const& msg = *i;
+				std::size_t msglen = msg.size();
+				LOG((CLOG_DEBUG1 "hook: %s", msg.c_str()));
+			}
+			log->clear();
+			return true;
 	}
 
 	if (m_isPrimary) {
