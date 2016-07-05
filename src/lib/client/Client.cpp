@@ -853,6 +853,7 @@ Client::sendClipboardThread(void * data)
 	// send clipboards that we own and that have changed
 	for (ClipboardID id = 0; id < kClipboardEnd; ++id) {
 		if (m_ownClipboard[id]) {
+			LOG((CLOG_DEBUG "sending clipboard %d in a thread", id));
 			sendClipboard(id, &clipboard[id]);
 		}
 	}
