@@ -295,41 +295,56 @@ Client::leave()
 		}
 	}
 	stopwatch.reset();
-
+	
 	m_active = false;
-
+	
+	// TODO: Clipboard stuffs are getting hairy, need to refactor the code
 	if (m_sendClipboardThread != NULL) {
-		StreamChunker::interruptClipboard();
-		m_sendClipboardThread->wait();
-		m_sendClipboardThread = NULL;
-	}
-
-	m_condData = false;
-	m_sendClipboardThread = new Thread(
-								new TMethodJob<Client>(
-									this,
-									&Client::sendClipboardThread,
-									NULL));
-	// Bug #4735 - we can't leave() until fillClipboard()s all finish
-	Stopwatch timer(false);
-	m_mutex->lock();
-	while (!m_condData) {
-		if (!m_condVar->wait(timer, 0.5)) {
-			LOG((CLOG_WARN "timed out %fs waiting for clipboard fill",
-				(double) timer.getTime()));
-			break;
+		bool interrupt = false;
+		for (ClipboardID id = 0; id < kClipboardEnd; ++id) {
+			// ideally we should check clipboard data, but that requires
+			// we make a copy of the clipboard
+			if (m_ownClipboard[id] && m_sentClipboard[id] == false) {
+				interrupt = true;
+				break;
+			}
 		}
-		LOG((CLOG_DEBUG1 "leave %fs elapsed", (double) timer.getTime()));
+		if (interrupt) {
+			StreamChunker::interruptClipboard();
+			m_sendClipboardThread->wait();
+			m_sendClipboardThread = NULL;
+		}
+		
 	}
-	m_mutex->unlock();
-
+	
+	if (m_sendClipboardThread == NULL) {
+		m_condData = false;
+		m_sendClipboardThread = new Thread(
+										   new TMethodJob<Client>(
+												this,
+												&Client::sendClipboardThread,
+												NULL));
+		// Bug #4735 - we can't leave() until fillClipboard()s all finish
+		Stopwatch timer(false);
+		m_mutex->lock();
+		while (!m_condData) {
+			if (!m_condVar->wait(timer, 0.5)) {
+				LOG((CLOG_WARN "timed out %fs waiting for clipboard fill",
+					 (double) timer.getTime()));
+				break;
+			}
+			LOG((CLOG_DEBUG1 "leave %fs elapsed", (double) timer.getTime()));
+		}
+		m_mutex->unlock();
+	}
+	
 	m_screen->leave();
-
+	
 	if (!m_receivedFileData.empty()) {
 		m_receivedFileData.clear();
 		LOG((CLOG_DEBUG "file transmission interrupted"));
 	}
-
+	
 	return true;
 }
 
