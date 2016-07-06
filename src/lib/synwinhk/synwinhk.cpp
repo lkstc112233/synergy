@@ -22,9 +22,6 @@
 
 #include <zmouse.h>
 #include <tchar.h>
-#include <list>
-#include <string>
-#include <sstream>
  
 #if _MSC_VER >= 1400
 // VS2005 hack - we don't use assert here because we don't want to link with the CRT.
@@ -125,7 +122,6 @@ static BYTE				g_keyState[256]   = { 0 };
 static DWORD			g_hookThread      = 0;
 static DWORD			g_attachedThread  = 0;
 static bool				g_fakeInput       = false;
-static std::list<std::string>* g_Log		= NULL;
 
 #if defined(_MSC_VER)
 #pragma data_seg()
@@ -146,72 +142,19 @@ int _fltused=0;
 //
 
 static
-bool
+void
 detachThread()
 {
-	bool ret = false;
 	if (g_attachedThread != 0 && g_hookThread != g_attachedThread) {
-		ret = AttachThreadInput(g_hookThread, g_attachedThread, FALSE);
+		AttachThreadInput(g_hookThread, g_attachedThread, FALSE);
 		g_attachedThread = 0;
 	}
-	return ret;
-}
-
-static
-void
-logMessage (std::string msg) {
-	if (!g_Log) {
-		g_Log = new std::list<std::string>();
-	}
-	if (msg.empty() || (msg.back() != '\n')) {
-		msg.push_back ('\n');
-	}
-	g_Log->push_back (msg);
-	if (g_Log->size() > 100) {
-		g_Log->pop_front();
-	}
-	PostThreadMessage (g_threadID, SYNERGY_MSG_DEBUG_LOG,
-						reinterpret_cast<WPARAM>(g_Log), 0);
-}
-
-static
-void
-logMessage (std::ostringstream& msgStream) {
-	logMessage (msgStream.str());
-	msgStream.clear();
-}
-
-struct LogGuard {
-	explicit LogGuard (std::string const& msg): m_msg(msg) {}
-	~LogGuard () { logMessage(m_msg); }
-private:
-	std::string m_msg;
-};
-
-void
-logThreadInfo (std::string threadName, DWORD threadID) {
-	GUITHREADINFO guiInfo;
-	guiInfo.cbSize = sizeof(guiInfo);
-	std::ostringstream logStream;
-	logStream << threadName << " thread info:\n";
-	logStream << "  thread ID: 0x" << std::hex << threadID << "\n"; 
-	if (GetGUIThreadInfo (threadID, &guiInfo)) {
-		logStream << "  active Window ID: 0x" << std::hex << guiInfo.hwndActive << "\n";
-		logStream << "  keyboard focus Window ID: 0x" << std::hex << guiInfo.hwndFocus << "\n";
-		logStream << "  mouse capture Window ID: 0x" << std::hex << guiInfo.hwndCapture << "\n";
-	} else {
-		logStream << "  Couldn't get window info";
-	}
-	logMessage (logStream);
 }
 
 static
 bool
 attachThreadToForeground()
 {
-	logMessage ("Entered attachThreadToForeground");
-	LogGuard logGuard ("Leaving attachThreadToForeground");
-
 	// only attach threads if using low level hooks.  a low level hook
 	// runs in the thread that installed the hook but we have to make
 	// changes that require being attached to the target thread (which
@@ -219,32 +162,19 @@ attachThreadToForeground()
 	// thread that just removed the event from its queue so we're
 	// already in the right thread.
 	if (g_hookThread != 0) {
-		logMessage ("We have a hook thread");
 		HWND window    = GetForegroundWindow();
         if (window == NULL)
             return false;
-		logMessage ("We have a foreground window");
 
 		DWORD threadID = GetWindowThreadProcessId(window, NULL);
-
-		logThreadInfo ("Hook", g_hookThread);
-		logThreadInfo ("Foreground", threadID);
-		logThreadInfo ("Attached", g_attachedThread);
-		std::ostringstream logStream;
-
 		// skip if no change
 		if (g_attachedThread != threadID) {
-			logMessage ("We need to attach to the foreground thread");
 			// detach from previous thread
-			if (!detachThread()) {
-				logMessage ("Couldn't detach input from current thread");
-			}
+			detachThread();
 
 			// attach to new thread
 			if (threadID != 0 && threadID != g_hookThread) {
-				if (!AttachThreadInput(g_hookThread, threadID, TRUE)) {
-					logMessage ("Failed to attach input to new thread");
-				}
+				AttachThreadInput(g_hookThread, threadID, TRUE);
 				g_attachedThread = threadID;
 			}
 			return true;
@@ -286,7 +216,7 @@ keyboardGetState(BYTE keys[256], DWORD vkCode, bool kf_up)
 		// is when it tells us that the current key is down.
 		// In this case, update g_keyState to reflect what GetAsyncKeyState()
 		// is telling us, just in case we have gotten out of sync
-		
+
 		for (int i = 0; i < 256; ++i) {
 			key = GetAsyncKeyState(i);
 			g_keyState[i] = (BYTE)((key < 0) ? 0x80u : 0);
@@ -302,24 +232,12 @@ keyboardGetState(BYTE keys[256], DWORD vkCode, bool kf_up)
 	keys[VK_CAPITAL] = (BYTE)(((key < 0) ? 0x80 : 0) | (key & 1));
 }
 
-
 static
 bool
 doKeyboardHookHandler(WPARAM wParam, LPARAM lParam)
 {
-	logMessage ("Entering doKeyboardHookHandler");
-	LogGuard logGuard ("Leaving doKeyboardHookHandler");
 	DWORD vkCode = static_cast<DWORD>(wParam);
 	bool kf_up = (lParam & (KF_UP << 16)) != 0;
-
-	if (vkCode == 0x5A) {
-		logMessage ("=================ZZZZZ===================");
-	}
-
-	std::ostringstream logStream;
-	logStream << "VK code is " << vkCode;
-	logMessage (logStream);
-	logMessage (kf_up ? "Key is up" : "key is down");
 
 	// check for special events indicating if we should start or stop
 	// passing events through and not report them to the server.  this
@@ -333,14 +251,12 @@ doKeyboardHookHandler(WPARAM wParam, LPARAM lParam)
 								0xff000000u | wParam, lParam);
 
 		// discard event
-		logMessage ("Discarding 'special' event");
 		return true;
 	}
 
 	// if we're expecting fake input then just pass the event through
 	// and do not forward to the server
 	if (g_fakeInput) {
-		logMessage ("Discarding 'fake' input");
 		PostThreadMessage(g_threadID, SYNERGY_MSG_DEBUG,
 								0xfe000000u | wParam, lParam);
 		return false;
@@ -349,18 +265,15 @@ doKeyboardHookHandler(WPARAM wParam, LPARAM lParam)
 	// VK_RSHIFT may be sent with an extended scan code but right shift
 	// is not an extended key so we reset that bit.
 	if (wParam == VK_RSHIFT) {
-		logMessage ("Right shift");
 		lParam &= ~0x01000000u;
 	}
 
 	// tell server about event
-	logMessage ("Telling server about event");
 	PostThreadMessage(g_threadID, SYNERGY_MSG_DEBUG, wParam, lParam);
 
 	// ignore dead key release
 	if ((g_deadVirtKey == wParam || g_deadRelease == wParam) &&
 		(lParam & 0x80000000u) != 0) {
-		logMessage ("Ignoring dead key release");
 		g_deadRelease = 0;
 		PostThreadMessage(g_threadID, SYNERGY_MSG_DEBUG,
 						wParam | 0x04000000, lParam);
@@ -368,18 +281,8 @@ doKeyboardHookHandler(WPARAM wParam, LPARAM lParam)
 	}
 
 	// we need the keyboard state for ToAscii()
-	logMessage ("Getting keyboard state");
 	BYTE keys[256];
 	keyboardGetState(keys, vkCode, kf_up);
-
-	logStream << "The follow keys are down: ";
-	for (int i = 0; i < 256; ++i) {
-		if (keys[i] & 0x80) {
-			logStream << keys[i] << " ";
-		}
-	}
-
-	logStream << "\n";
 
 	// ToAscii() maps ctrl+letter to the corresponding control code
 	// and ctrl+backspace to delete.  we don't want those translations
@@ -393,7 +296,6 @@ doKeyboardHookHandler(WPARAM wParam, LPARAM lParam)
 		keys[VK_CONTROL]  = 0;
 	}
 	else {
-		logMessage ("Either control or menu is down, setting them all down??");
 		keys[VK_LCONTROL] = 0x80;
 		keys[VK_RCONTROL] = 0x80;
 		keys[VK_CONTROL]  = 0x80;
@@ -432,7 +334,6 @@ doKeyboardHookHandler(WPARAM wParam, LPARAM lParam)
 	// map the key event to a character.  we have to put the dead
 	// key back first and this has the side effect of removing it.
 	if (g_deadVirtKey != 0) {
-		logMessage ("g_deadVirtKey -> ToAscii");
 		if (ToAscii((UINT)g_deadVirtKey, (g_deadLParam & 0x10ff0000u) >> 16,
 					g_deadKeyState, &c, flags) == 2)
 		{
@@ -461,12 +362,10 @@ doKeyboardHookHandler(WPARAM wParam, LPARAM lParam)
 	// we have to put the dead key back first, if there was one.
 	bool noAltGr = false;
 	if (n == 0 && (control & 0x80) != 0 && (menu & 0x80) != 0) {
-		logMessage ("Ctrl, menu. altgr -> TRUE branch");
 		noAltGr = true;
 		PostThreadMessage(g_threadID, SYNERGY_MSG_DEBUG,
 							wParam | 0x05000000, lParam);
 		if (g_deadVirtKey != 0) {
-			logMessage ("Ctrl, menu, altrgr, -> ToAscii branch");
 			if (ToAscii((UINT)g_deadVirtKey, (g_deadLParam & 0x10ff0000u) >> 16,
 							g_deadKeyState, &c, flags) == 2)
 			{
@@ -494,12 +393,10 @@ doKeyboardHookHandler(WPARAM wParam, LPARAM lParam)
 							lParam);
 	WPARAM charAndVirtKey = 0;
 	bool clearDeadKey = false;
-	logStream << "n = " << n << "\n";
-	logMessage (logStream);
 	switch (n) {
 	default:
 		// key is a dead key
-		logMessage ("key is dead key");
+
 		if (lParam & 0x80000000u)
 			// This handles the obscure situation where a key has been
 			// pressed which is both a dead key and a normal character
@@ -516,21 +413,18 @@ doKeyboardHookHandler(WPARAM wParam, LPARAM lParam)
 		break;
 
 	case 0:
-		logMessage ("key doesn't map to a character");
 		// key doesn't map to a character.  this can happen if
 		// non-character keys are pressed after a dead key.
 		charAndVirtKey = makeKeyMsg((UINT)wParam, (char)0, noAltGr);
 		break;
 
 	case 1:
-		logMessage ("key maps to a composed character with a dead key");
 		// key maps to a character composed with dead key
 		charAndVirtKey = makeKeyMsg((UINT)wParam, (char)LOBYTE(c), noAltGr);
 		clearDeadKey   = true;
 		break;
 
 	case 2: {
-		logMessage ("previous dead key not composed");
 		// previous dead key not composed.  send a fake key press
 		// and release for the dead key to our window.
 		WPARAM deadCharAndVirtKey =
@@ -549,14 +443,12 @@ doKeyboardHookHandler(WPARAM wParam, LPARAM lParam)
 
 	// put back the dead key, if any, for the application to use
 	if (g_deadVirtKey != 0) {
-		logMessage ("Putting back the dead key");
 		ToAscii((UINT)g_deadVirtKey, (g_deadLParam & 0x10ff0000u) >> 16,
 							g_deadKeyState, &c, flags);
 	}
 
 	// clear out old dead key state
 	if (clearDeadKey) {
-		logMessage ("Clearing the old dead key");
 		g_deadVirtKey = 0;
 		g_deadLParam  = 0;
 	}
@@ -829,15 +721,6 @@ keyboardLLHook(int code, WPARAM wParam, LPARAM lParam)
 	if (code >= 0) {
 		// decode the message
 		KBDLLHOOKSTRUCT* info = reinterpret_cast<KBDLLHOOKSTRUCT*>(lParam);
-
-		logMessage ("Entering keyboardLLHook");
-		std::ostringstream logStream;
-
-		logStream << "VK code = " << info->vkCode << "\n";
-		logStream << "Scan code = " << info->scanCode << "\n";
-		logStream << "Flags = " << info->flags << "\n";
-		logMessage (logStream);
-
 		WPARAM wParam = info->vkCode;
 		LPARAM lParam = 1;							// repeat code
 		lParam      |= (info->scanCode << 16);		// scan code
@@ -856,7 +739,6 @@ keyboardLLHook(int code, WPARAM wParam, LPARAM lParam)
 
 		// handle the message
 		if (keyboardHookHandler(wParam, lParam)) {
-			logMessage ("LL keyboard event will be eaten");
 			return 1;
 		}
 	}
@@ -975,15 +857,66 @@ BOOL WINAPI _DllMainCRTStartup(
 
 // VS2005 is a bit more bright than VC6 and optimize simple copy loop to
 // intrinsic memcpy.
-void*  __cdecl memcpy(void* const _Dst, const void* const _Src, size_t _MaxCount)
+void *  __cdecl memcpy(void * _Dst, const void * _Src, size_t _MaxCount)
 {
-	char* dst = static_cast<char*>(_Dst);
-	char const* src = static_cast<char const*>(_Src);
-	while (_MaxCount) {
-		*dst++ = *src++;
-		--_MaxCount;
-	}
-	return _Dst;
+  void * _DstBackup = _Dst;
+  switch (_MaxCount & 3) {
+  case 3:
+    ((char*)_Dst)[0] = ((char*)_Src)[0];
+    ++(char*&)_Dst;
+    ++(char*&)_Src;
+    --_MaxCount;
+  case 2:
+    ((char*)_Dst)[0] = ((char*)_Src)[0];
+    ++(char*&)_Dst;
+    ++(char*&)_Src;
+    --_MaxCount;
+  case 1:
+    ((char*)_Dst)[0] = ((char*)_Src)[0];
+    ++(char*&)_Dst;
+    ++(char*&)_Src;
+    --_MaxCount;
+    break;
+  case 0:
+    break;
+
+  default:
+    __assume(0);
+    break;
+  }
+
+  // I think it's faster on intel to deference than modify the pointer.
+  const size_t max = _MaxCount / sizeof(UINT_PTR);
+  for (size_t i = 0; i < max; ++i) {
+    ((UINT_PTR*)_Dst)[i] = ((UINT_PTR*)_Src)[i];
+  }
+
+  (UINT_PTR*&)_Dst += max;
+  (UINT_PTR*&)_Src += max;
+
+  switch (_MaxCount & 3) {
+  case 3:
+    ((char*)_Dst)[0] = ((char*)_Src)[0];
+    ++(char*&)_Dst;
+    ++(char*&)_Src;
+  case 2:
+    ((char*)_Dst)[0] = ((char*)_Src)[0];
+    ++(char*&)_Dst;
+    ++(char*&)_Src;
+  case 1:
+    ((char*)_Dst)[0] = ((char*)_Src)[0];
+    ++(char*&)_Dst;
+    ++(char*&)_Src;
+    break;
+  case 0:
+    break;
+
+  default:
+    __assume(0);
+    break;
+  }
+
+  return _DstBackup;
 }
 #endif
 
