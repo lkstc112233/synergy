@@ -254,12 +254,20 @@ class InternalCommands:
 	gmockDir = 'gmock-1.6.0'
 
 	win32_generators = {
-		1 : VisualStudioGenerator('10'),
-		2 : VisualStudioGenerator('10 Win64'),
-		3 : VisualStudioGenerator('9 2008'),
-		4 : VisualStudioGenerator('9 2008 Win64'),
-		5 : VisualStudioGenerator('8 2005'),
-		6 : VisualStudioGenerator('8 2005 Win64')
+		1 : VisualStudioGenerator('14'),
+		2 : VisualStudioGenerator('14 Win64'),
+		3 : VisualStudioGenerator('13'),
+		4 : VisualStudioGenerator('13 Win64'),
+		5 : VisualStudioGenerator('12'),
+		6 : VisualStudioGenerator('12 Win64'),
+		7 : VisualStudioGenerator('11'),
+		8 : VisualStudioGenerator('11 Win64'),
+		9 : VisualStudioGenerator('10'),
+		10: VisualStudioGenerator('10 Win64'),
+		11: VisualStudioGenerator('9 2008'),
+		12: VisualStudioGenerator('9 2008 Win64'),
+		13: VisualStudioGenerator('8 2005'),
+		14: VisualStudioGenerator('8 2005 Win64')
 	}
 
 	unix_generators = {
@@ -1750,6 +1758,14 @@ class InternalCommands:
 			value,type = _winreg.QueryValueEx(key, '9.0')
 		elif generator.startswith('Visual Studio 10'):
 			value,type = _winreg.QueryValueEx(key, '10.0')
+		elif generator.startswith('Visual Studio 11'):
+			value,type = _winreg.QueryValueEx(key, '11.0')
+		elif generator.startswith('Visual Studio 12'):
+			value,type = _winreg.QueryValueEx(key, '12.0')
+		elif generator.startswith('Visual Studio 13'):
+			value,type = _winreg.QueryValueEx(key, '13.0')
+		elif generator.startswith('Visual Studio 14'):
+			value,type = _winreg.QueryValueEx(key, '14.0')
 		else:
 			raise Exception('Cannot determine vcvarsall.bat location for: ' + generator)
 		
@@ -1758,6 +1774,9 @@ class InternalCommands:
 			path = value + r'vc\vcvarsall.bat'
 		else:
 			path = value + r'vcvarsall.bat' 
+			# This works fine on my computer.
+			path = r'C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\vcvarsall.bat'
+			
 		
 		if not os.path.exists(path):
 			raise Exception("'%s' not found." % path)
